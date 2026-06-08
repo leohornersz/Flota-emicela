@@ -125,10 +125,6 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:#1E2D5B;box-sh
     <select id="sel-zona"><option value="">-- Seleccionar zona --</option></select>
   </div>
   <div class="field">
-    <label>Km salida</label>
-    <input type="number" id="inp-km-sal" placeholder="Ej: 45230">
-  </div>
-  <div class="field">
     <label>Observaciones</label>
     <input type="text" id="inp-obs" placeholder="Opcional">
   </div>
@@ -192,8 +188,9 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:#1E2D5B;box-sh
   <div class="section-title">Historial de incidencias</div>
   <div style="display:flex;gap:8px;margin-bottom:10px">
     <select id="fil-inc-estado" onchange="renderIncidencias()" style="flex:1">
-      <option value="abiertas">Abiertas</option>
-      <option value="todas">Todas</option>
+      <option value="abiertas">En curso</option>
+      <option value="todas">Finalizadas</option>
+      <option value="all">Todas</option>
     </select>
     <button class="btn-sm btn-print" onclick="imprimirIncidencias()">&#128424;</button>
   </div>
@@ -262,10 +259,6 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:#1E2D5B;box-sh
     <h3 style="text-align:center;margin-bottom:14px">&#128663; Devolver veh&iacute;culo</h3>
     <div id="dev-vehiculo-info" style="text-align:center;font-size:14px;color:#1E2D5B;font-weight:600;margin-bottom:14px"></div>
     <input type="hidden" id="dev-id">
-    <div class="field">
-      <label>Km devoluci&oacute;n</label>
-      <input type="number" id="dev-km" placeholder="Opcional">
-    </div>
     <div class="field" style="margin-bottom:10px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
         <input type="checkbox" id="dev-tiene-inc" onchange="toggleDevInc()" style="width:18px;height:18px;accent-color:#B91C1C">
@@ -437,7 +430,6 @@ function registrarSalida(){
   var cond=document.getElementById('sel-conductor').value;
   var veh=document.getElementById('sel-vehiculo').value;
   var zona=document.getElementById('sel-zona').value;
-  var km=document.getElementById('inp-km-sal').value.trim();
   var obs=document.getElementById('inp-obs').value.trim();
   if(!cond){showAlert('Selecciona un conductor','error');return;}
   if(!veh){showAlert('Selecciona un vehículo','error');return;}
@@ -447,12 +439,11 @@ function registrarSalida(){
       showAlert('El vehículo '+veh+' ya está fuera ('+registros[i].conductor+')','error');return;
     }
   }
-  registros.unshift({id:Date.now(),conductor:cond,vehiculo:veh,zona:zona,kmSalida:km,kmDevolucion:'',obs:obs,salida:Date.now(),devuelta:null});
+  registros.unshift({id:Date.now(),conductor:cond,vehiculo:veh,zona:zona,obs:obs,salida:Date.now(),devuelta:null});
   save();
   showAlert('Vehículo '+veh+' asignado a '+cond);
   document.getElementById('sel-conductor').value='';
   document.getElementById('sel-vehiculo').value='';
-  document.getElementById('inp-km-sal').value='';
   document.getElementById('inp-obs').value='';
 }
 
@@ -462,7 +453,6 @@ function devolverVehiculo(id){
   if(!reg) return;
   document.getElementById('dev-id').value=id;
   document.getElementById('dev-vehiculo-info').textContent=reg.vehiculo+' — '+reg.conductor;
-  document.getElementById('dev-km').value='';
   document.getElementById('dev-tiene-inc').checked=false;
   document.getElementById('dev-inc-fields').style.display='none';
   document.getElementById('dev-inc-tipo').value='';
@@ -479,13 +469,11 @@ function cerrarModalDev(){document.getElementById('modal-devolver').classList.re
 
 function confirmarDevolucion(){
   var id=Number(document.getElementById('dev-id').value);
-  var km=document.getElementById('dev-km').value.trim();
   var tieneInc=document.getElementById('dev-tiene-inc').checked;
   var reg=null;
   for(var i=0;i<registros.length;i++){
     if(registros[i].id===id){
       registros[i].devuelta=Date.now();
-      if(km) registros[i].kmDevolucion=km;
       reg=registros[i];
       break;
     }
@@ -523,9 +511,9 @@ function renderActivos(){
   if(!activos.length){el.innerHTML='<div class="empty"><div class="empty-icon">&#9989;</div>Todos los veh&iacute;culos en base</div>';return;}
 
   if(activosMode==='list'){
-    var html='<div class="list-scroll"><table class="list-table"><thead><tr><th>Veh&iacute;culo</th><th>Conductor</th><th>Zona</th><th>Km</th><th>Salida</th><th>Tiempo</th><th></th></tr></thead><tbody>';
+    var html='<div class="list-scroll"><table class="list-table"><thead><tr><th>Veh&iacute;culo</th><th>Conductor</th><th>Zona</th><th>Salida</th><th>Tiempo</th><th></th></tr></thead><tbody>';
     activos.forEach(function(r){
-      html+='<tr><td class="td-tool">'+r.vehiculo+'</td><td class="td-op">'+r.conductor+'</td><td class="td-op">'+(r.zona||'-')+'</td><td>'+(r.kmSalida||'-')+'</td><td class="td-date">'+fmt(r.salida)+'</td><td class="td-dur"><span class="hist-dur">'+fmtDur(Date.now()-r.salida)+'</span></td><td><button class="btn-sm btn-devolver" onclick="devolverVehiculo('+r.id+')" style="padding:4px 10px;font-size:11px">&#10003;</button></td></tr>';
+      html+='<tr><td class="td-tool">'+r.vehiculo+'</td><td class="td-op">'+r.conductor+'</td><td class="td-op">'+(r.zona||'-')+'</td><td class="td-date">'+fmt(r.salida)+'</td><td class="td-dur"><span class="hist-dur">'+fmtDur(Date.now()-r.salida)+'</span></td><td><button class="btn-sm btn-devolver" onclick="devolverVehiculo('+r.id+')" style="padding:4px 10px;font-size:11px">&#10003;</button></td></tr>';
     });
     html+='</tbody></table></div>';
     el.innerHTML=html;
@@ -539,7 +527,6 @@ function renderActivos(){
     html+='<div class="card"><div class="card-header"><div style="display:flex;gap:10px;align-items:center;flex:1"><div class="operario-avatar">'+av+'</div><div><div class="card-title">&#128663; '+r.vehiculo+'</div><div class="card-meta">&#128100; '+r.conductor+'</div>';
     if(r.zona) html+='<div class="card-meta">&#128205; '+r.zona+'</div>';
     html+='<div class="card-meta">&#128336; '+fmt(r.salida)+' &middot; <strong>'+dur+'</strong></div>';
-    if(r.kmSalida) html+='<div class="card-meta">&#128663; Km: '+r.kmSalida+'</div>';
     if(r.obs) html+='<div class="card-meta">&#128221; '+r.obs+'</div>';
     html+='</div></div><span class="badge badge-out">Fuera</span></div>';
     html+='<div class="card-actions"><button class="btn-sm btn-devolver" onclick="devolverVehiculo('+r.id+')">&#10003; Devolver</button></div></div>';
@@ -582,10 +569,11 @@ function renderIncidencias(){
   var estado=document.getElementById('fil-inc-estado').value;
   var lista=incidencias.filter(function(inc){
     if(estado==='abiertas') return !inc.resuelta;
+    if(estado==='todas') return inc.resuelta;
     return true;
   });
   var el=document.getElementById('lista-incidencias');
-  if(!lista.length){el.innerHTML='<div class="empty"><div class="empty-icon">&#9888;</div>'+(estado==='abiertas'?'Sin incidencias abiertas':'Sin incidencias registradas')+'</div>';return;}
+  if(!lista.length){el.innerHTML='<div class="empty"><div class="empty-icon">&#9888;</div>'+(estado==='abiertas'?'Sin incidencias en curso':estado==='todas'?'Sin incidencias finalizadas':'Sin incidencias registradas')+'</div>';return;}
   var html='';
   lista.forEach(function(inc){
     html+='<div class="card inc-priority-'+inc.prioridad+'">';
@@ -593,10 +581,10 @@ function renderIncidencias(){
     html+='<div class="card-meta">&#128197; '+fmt(inc.fecha)+' &middot; Prioridad: <strong>'+inc.prioridad.toUpperCase()+'</strong></div>';
     if(inc.conductor) html+='<div class="card-meta">&#128100; Conductor: '+inc.conductor+'</div>';
     html+='<div class="card-meta" style="color:#333;margin-top:6px">'+inc.descripcion+'</div>';
-    if(inc.resuelta) html+='<div class="card-meta">&#9989; Resuelta: '+fmt(inc.resuelta)+'</div>';
-    html+='</div>'+(inc.resuelta?'<span class="badge badge-in">Resuelta</span>':'<span class="badge badge-warn">Abierta</span>')+'</div>';
+    if(inc.resuelta) html+='<div class="card-meta">&#9989; Finalizada: '+fmt(inc.resuelta)+'</div>';
+    html+='</div>'+(inc.resuelta?'<span class="badge badge-in">Finalizada</span>':'<span class="badge badge-warn">En curso</span>')+'</div>';
     html+='<div class="card-actions">';
-    if(!inc.resuelta) html+='<button class="btn-sm btn-devolver" onclick="resolverIncidencia('+inc.id+')">&#10003; Resolver</button>';
+    if(!inc.resuelta) html+='<button class="btn-sm btn-devolver" onclick="resolverIncidencia('+inc.id+')">&#10003; Finalizar</button>';
     html+='<button class="btn-sm btn-danger" onclick="borrarIncidencia('+inc.id+')">&#128465; Eliminar</button>';
     html+='</div></div>';
   });
@@ -618,10 +606,9 @@ function renderHistorial(){
   if(!devueltos.length){el.innerHTML='<div class="empty"><div class="empty-icon">&#128336;</div>Sin registros devueltos</div>';return;}
 
   if(histView==='list'){
-    var html='<div class="list-scroll"><table class="list-table"><thead><tr><th>Veh&iacute;culo</th><th>Conductor</th><th>Zona</th><th>Km sal.</th><th>Km dev.</th><th>Salida</th><th>Devuelta</th><th>Dur.</th><th></th></tr></thead><tbody>';
+    var html='<div class="list-scroll"><table class="list-table"><thead><tr><th>Veh&iacute;culo</th><th>Conductor</th><th>Zona</th><th>Salida</th><th>Devuelta</th><th>Dur.</th><th></th></tr></thead><tbody>';
     devueltos.forEach(function(r){
-      var kmDif=(r.kmSalida&&r.kmDevolucion)?(Number(r.kmDevolucion)-Number(r.kmSalida)):'';
-      html+='<tr><td class="td-tool">'+r.vehiculo+'</td><td class="td-op">'+r.conductor+'</td><td class="td-op">'+(r.zona||'-')+'</td><td>'+(r.kmSalida||'-')+'</td><td>'+(r.kmDevolucion||'-')+(kmDif?' <span style="color:#1E2D5B;font-weight:600">('+kmDif+' km)</span>':'')+'</td><td class="td-date">'+fmt(r.salida)+'</td><td class="td-date">'+fmt(r.devuelta)+'</td><td class="td-dur"><span class="hist-dur">'+fmtDur(r.devuelta-r.salida)+'</span></td><td><button class="btn-del-row" onclick="borrarRegistro('+r.id+')">&#128465;</button></td></tr>';
+      html+='<tr><td class="td-tool">'+r.vehiculo+'</td><td class="td-op">'+r.conductor+'</td><td class="td-op">'+(r.zona||'-')+'</td><td class="td-date">'+fmt(r.salida)+'</td><td class="td-date">'+fmt(r.devuelta)+'</td><td class="td-dur"><span class="hist-dur">'+fmtDur(r.devuelta-r.salida)+'</span></td><td><button class="btn-del-row" onclick="borrarRegistro('+r.id+')">&#128465;</button></td></tr>';
     });
     html+='</tbody></table></div>';
     el.innerHTML=html;
@@ -631,12 +618,10 @@ function renderHistorial(){
   var html='';
   devueltos.forEach(function(r){
     var dur=fmtDur(r.devuelta-r.salida);
-    var kmDif=(r.kmSalida&&r.kmDevolucion)?(Number(r.kmDevolucion)-Number(r.kmSalida))+' km':'';
     html+='<div class="card"><div class="card-header"><div style="flex:1"><div class="card-title">&#128663; '+r.vehiculo+'</div>';
     html+='<div class="card-meta">&#128100; '+r.conductor+'</div>';
     if(r.zona) html+='<div class="card-meta">&#128205; '+r.zona+'</div>';
     html+='<div class="card-meta">&#128336; '+fmt(r.salida)+' &#10132; '+fmt(r.devuelta)+' &middot; <strong>'+dur+'</strong></div>';
-    if(r.kmSalida) html+='<div class="card-meta">&#128663; '+r.kmSalida+(r.kmDevolucion?' &#10132; '+r.kmDevolucion:'')+(kmDif?' &middot; <strong>'+kmDif+'</strong>':'')+'</div>';
     if(r.obs) html+='<div class="card-meta">&#128221; '+r.obs+'</div>';
     html+='</div><span class="badge badge-in">&#10003; Devuelto</span></div></div>';
   });
@@ -658,10 +643,9 @@ function imprimirHistorial(){
   if(!devueltos.length){alert('Sin registros');return;}
   var rows='';
   devueltos.forEach(function(r){
-    var kmDif=(r.kmSalida&&r.kmDevolucion)?(Number(r.kmDevolucion)-Number(r.kmSalida)):'';
-    rows+='<tr><td style="font-weight:600">'+r.vehiculo+'</td><td>'+r.conductor+'</td><td>'+(r.zona||'-')+'</td><td>'+(r.kmSalida||'-')+'</td><td>'+(r.kmDevolucion||'-')+(kmDif?' ('+kmDif+' km)':'')+'</td><td>'+fmt(r.salida)+'</td><td>'+fmt(r.devuelta)+'</td><td>'+fmtDur(r.devuelta-r.salida)+'</td></tr>';
+    rows+='<tr><td style="font-weight:600">'+r.vehiculo+'</td><td>'+r.conductor+'</td><td>'+(r.zona||'-')+'</td><td>'+fmt(r.salida)+'</td><td>'+fmt(r.devuelta)+'</td><td>'+fmtDur(r.devuelta-r.salida)+'</td></tr>';
   });
-  var table='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th'+thStyle()+'>Veh&iacute;culo</th><th'+thStyle()+'>Conductor</th><th'+thStyle()+'>Zona</th><th'+thStyle()+'>Km sal.</th><th'+thStyle()+'>Km dev.</th><th'+thStyle()+'>Salida</th><th'+thStyle()+'>Devuelta</th><th'+thStyle()+'>Dur.</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  var table='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th'+thStyle()+'>Veh&iacute;culo</th><th'+thStyle()+'>Conductor</th><th'+thStyle()+'>Zona</th><th'+thStyle()+'>Salida</th><th'+thStyle()+'>Devuelta</th><th'+thStyle()+'>Dur.</th></tr></thead><tbody>'+rows+'</tbody></table>';
   crearOverlay('Control de Veh&iacute;culos','Historial de movimientos',table,devueltos.length);
 }
 
@@ -688,21 +672,23 @@ function imprimirActivos(){
   if(!activos.length){alert('Sin vehículos fuera');return;}
   var rows='';
   activos.forEach(function(r){
-    rows+='<tr><td style="font-weight:600">'+r.vehiculo+'</td><td>'+r.conductor+'</td><td>'+(r.zona||'-')+'</td><td>'+(r.kmSalida||'-')+'</td><td>'+fmt(r.salida)+'</td><td>'+fmtDur(Date.now()-r.salida)+'</td></tr>';
+    rows+='<tr><td style="font-weight:600">'+r.vehiculo+'</td><td>'+r.conductor+'</td><td>'+(r.zona||'-')+'</td><td>'+fmt(r.salida)+'</td><td>'+fmtDur(Date.now()-r.salida)+'</td></tr>';
   });
-  var table='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th'+thStyle()+'>Veh&iacute;culo</th><th'+thStyle()+'>Conductor</th><th'+thStyle()+'>Zona</th><th'+thStyle()+'>Km</th><th'+thStyle()+'>Salida</th><th'+thStyle()+'>Tiempo</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  var table='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th'+thStyle()+'>Veh&iacute;culo</th><th'+thStyle()+'>Conductor</th><th'+thStyle()+'>Zona</th><th'+thStyle()+'>Salida</th><th'+thStyle()+'>Tiempo</th></tr></thead><tbody>'+rows+'</tbody></table>';
   crearOverlay('Veh&iacute;culos Activos','Veh&iacute;culos actualmente fuera de base',table,activos.length);
 }
 
 function imprimirIncidencias(){
   var estado=document.getElementById('fil-inc-estado').value;
   var lista=incidencias.filter(function(inc){
-    if(estado==='abiertas') return !inc.resuelta;return true;
+    if(estado==='abiertas') return !inc.resuelta;
+    if(estado==='todas') return inc.resuelta;
+    return true;
   });
   if(!lista.length){alert('Sin incidencias');return;}
   var rows='';
   lista.forEach(function(inc){
-    var est=inc.resuelta?'Resuelta':'ABIERTA';
+    var est=inc.resuelta?'Finalizada':'EN CURSO';
     rows+='<tr><td style="font-weight:600">'+inc.vehiculo+'</td><td>'+inc.tipo+'</td><td>'+inc.prioridad.toUpperCase()+'</td><td style="max-width:200px">'+inc.descripcion+'</td><td>'+fmt(inc.fecha)+'</td><td>'+(inc.resuelta?fmt(inc.resuelta):'-')+'</td><td>'+est+'</td></tr>';
   });
   var table='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th'+thStyle()+'>Veh&iacute;culo</th><th'+thStyle()+'>Tipo</th><th'+thStyle()+'>Prioridad</th><th'+thStyle()+'>Descripci&oacute;n</th><th'+thStyle()+'>Fecha</th><th'+thStyle()+'>Resuelta</th><th'+thStyle()+'>Estado</th></tr></thead><tbody>'+rows+'</tbody></table>';
