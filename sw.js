@@ -1,4 +1,4 @@
-var CACHE_NAME = 'vehiculos-emicela-v2';
+var CACHE_NAME = 'vehiculos-emicela-v4';
 var URLS_TO_CACHE = [
   './',
   './index.html',
