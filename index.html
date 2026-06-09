@@ -62,6 +62,11 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:#1E2D5B;box-sh
 .alert.success{background:#ECFDF5;color:#065F46;display:block}
 .alert.error{background:#FEF2F2;color:#B91C1C;display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.sig-box{border:2px dashed #ccc;border-radius:10px;padding:8px;background:#FAFAFA;margin-top:4px}
+.sig-box canvas{width:100%;height:120px;border-radius:8px;background:#fff;display:block;touch-action:none}
+.sig-actions{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.sig-actions span{font-size:11px;color:#aaa}
+.sig-actions button{font-size:12px;color:#1E2D5B;background:none;border:none;cursor:pointer;text-decoration:underline}
 .hist-toolbar{display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
 .view-toggle{display:flex;border:1px solid #ddd;border-radius:8px;overflow:hidden}
 .view-toggle button{border:none;background:#fff;padding:7px 12px;font-size:14px;cursor:pointer;color:#888}
@@ -127,6 +132,13 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:#1E2D5B;box-sh
   <div class="field">
     <label>Observaciones</label>
     <input type="text" id="inp-obs" placeholder="Opcional">
+  </div>
+  <div class="field">
+    <label>Firma del conductor (entrega)</label>
+    <div class="sig-box">
+      <canvas id="sig-salida"></canvas>
+      <div class="sig-actions"><span>Firme con el dedo</span><button type="button" onclick="limpiarFirma('sig-salida')">Borrar</button></div>
+    </div>
   </div>
   <button class="btn-primary" onclick="registrarSalida()">&#128663; Registrar salida</button>
   <button class="btn-sm" onclick="forzarSync()" style="width:100%;padding:10px;text-align:center;margin-top:10px;font-weight:600">&#128259; Sincronizar desde el servidor</button>
@@ -293,6 +305,13 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:#1E2D5B;box-sh
         <textarea id="dev-inc-desc" placeholder="Describe la incidencia..." style="font-size:14px;min-height:50px"></textarea>
       </div>
     </div>
+    <div class="field">
+      <label>Firma del conductor (devoluci&oacute;n)</label>
+      <div class="sig-box">
+        <canvas id="sig-devolucion"></canvas>
+        <div class="sig-actions"><span>Firme con el dedo</span><button type="button" onclick="limpiarFirma('sig-devolucion')">Borrar</button></div>
+      </div>
+    </div>
     <div class="modal-btns">
       <button onclick="cerrarModalDev()" style="background:#f5f5f5;color:#333">Cancelar</button>
       <button onclick="confirmarDevolucion()" style="background:#059669;color:#fff">&#10003; Devolver</button>
@@ -439,12 +458,15 @@ function registrarSalida(){
       showAlert('El vehículo '+veh+' ya está fuera ('+registros[i].conductor+')','error');return;
     }
   }
-  registros.unshift({id:Date.now(),conductor:cond,vehiculo:veh,zona:zona,obs:obs,salida:Date.now(),devuelta:null});
+  var firmaSalida=getFirma('sig-salida');
+  if(!firmaSalida){showAlert('El conductor debe firmar','error');return;}
+  registros.unshift({id:Date.now(),conductor:cond,vehiculo:veh,zona:zona,obs:obs,firmaSalida:firmaSalida,firmaDevolucion:null,salida:Date.now(),devuelta:null});
   save();
   showAlert('Vehículo '+veh+' asignado a '+cond);
   document.getElementById('sel-conductor').value='';
   document.getElementById('sel-vehiculo').value='';
   document.getElementById('inp-obs').value='';
+  limpiarFirma('sig-salida');
 }
 
 function devolverVehiculo(id){
@@ -459,6 +481,7 @@ function devolverVehiculo(id){
   document.getElementById('dev-inc-pri').value='media';
   document.getElementById('dev-inc-desc').value='';
   document.getElementById('modal-devolver').classList.add('open');
+  setTimeout(function(){initSigPad('sig-devolucion');},100);
 }
 
 function toggleDevInc(){
@@ -470,10 +493,13 @@ function cerrarModalDev(){document.getElementById('modal-devolver').classList.re
 function confirmarDevolucion(){
   var id=Number(document.getElementById('dev-id').value);
   var tieneInc=document.getElementById('dev-tiene-inc').checked;
+  var firmaDevolucion=getFirma('sig-devolucion');
+  if(!firmaDevolucion){alert('El conductor debe firmar la devolución');return;}
   var reg=null;
   for(var i=0;i<registros.length;i++){
     if(registros[i].id===id){
       registros[i].devuelta=Date.now();
+      registros[i].firmaDevolucion=firmaDevolucion;
       reg=registros[i];
       break;
     }
@@ -528,6 +554,7 @@ function renderActivos(){
     if(r.zona) html+='<div class="card-meta">&#128205; '+r.zona+'</div>';
     html+='<div class="card-meta">&#128336; '+fmt(r.salida)+' &middot; <strong>'+dur+'</strong></div>';
     if(r.obs) html+='<div class="card-meta">&#128221; '+r.obs+'</div>';
+    if(r.firmaSalida) html+='<div class="card-meta">&#9999; Firma: <img src="'+r.firmaSalida+'" style="height:40px;border:1px solid #ddd;border-radius:4px;vertical-align:middle;margin-left:4px"></div>';
     html+='</div></div><span class="badge badge-out">Fuera</span></div>';
     html+='<div class="card-actions"><button class="btn-sm btn-devolver" onclick="devolverVehiculo('+r.id+')">&#10003; Devolver</button></div></div>';
   });
@@ -623,6 +650,12 @@ function renderHistorial(){
     if(r.zona) html+='<div class="card-meta">&#128205; '+r.zona+'</div>';
     html+='<div class="card-meta">&#128336; '+fmt(r.salida)+' &#10132; '+fmt(r.devuelta)+' &middot; <strong>'+dur+'</strong></div>';
     if(r.obs) html+='<div class="card-meta">&#128221; '+r.obs+'</div>';
+    if(r.firmaSalida||r.firmaDevolucion){
+      html+='<div style="display:flex;gap:10px;margin-top:6px">';
+      if(r.firmaSalida) html+='<div style="text-align:center"><div style="font-size:10px;color:#888">Entrega</div><img src="'+r.firmaSalida+'" style="height:40px;border:1px solid #ddd;border-radius:4px"></div>';
+      if(r.firmaDevolucion) html+='<div style="text-align:center"><div style="font-size:10px;color:#888">Devoluci&oacute;n</div><img src="'+r.firmaDevolucion+'" style="height:40px;border:1px solid #ddd;border-radius:4px"></div>';
+      html+='</div>';
+    }
     html+='</div><span class="badge badge-in">&#10003; Devuelto</span></div></div>';
   });
   el.innerHTML=html;
@@ -763,8 +796,56 @@ function confirmarBorrar(){
   document.getElementById('modal-confirm').classList.add('open');
 }
 
+// SIGNATURE PAD
+var sigPads={};
+
+function initSigPad(canvasId){
+  var canvas=document.getElementById(canvasId);
+  if(!canvas) return;
+  var ctx=canvas.getContext('2d');
+  var rect=canvas.getBoundingClientRect();
+  canvas.width=rect.width;
+  canvas.height=rect.height;
+  ctx.strokeStyle='#1E2D5B';
+  ctx.lineWidth=2.5;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  var drawing=false;
+  sigPads[canvasId]={ctx:ctx,canvas:canvas,empty:true};
+
+  function getPos(e){
+    var r=canvas.getBoundingClientRect();
+    var t=e.touches?e.touches[0]:e;
+    return{x:t.clientX-r.left,y:t.clientY-r.top};
+  }
+  function start(e){e.preventDefault();drawing=true;var p=getPos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);}
+  function move(e){if(!drawing)return;e.preventDefault();var p=getPos(e);ctx.lineTo(p.x,p.y);ctx.stroke();sigPads[canvasId].empty=false;}
+  function end(){drawing=false;}
+  canvas.addEventListener('mousedown',start);
+  canvas.addEventListener('mousemove',move);
+  canvas.addEventListener('mouseup',end);
+  canvas.addEventListener('mouseleave',end);
+  canvas.addEventListener('touchstart',start,{passive:false});
+  canvas.addEventListener('touchmove',move,{passive:false});
+  canvas.addEventListener('touchend',end);
+}
+
+function limpiarFirma(canvasId){
+  var pad=sigPads[canvasId];
+  if(!pad) return;
+  pad.ctx.clearRect(0,0,pad.canvas.width,pad.canvas.height);
+  pad.empty=true;
+}
+
+function getFirma(canvasId){
+  var pad=sigPads[canvasId];
+  if(!pad||pad.empty) return null;
+  return pad.canvas.toDataURL('image/png');
+}
+
 document.getElementById('fecha').textContent=new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
 load();fillSelects();syncFromServer();
+setTimeout(function(){initSigPad('sig-salida');initSigPad('sig-devolucion');},100);
 </script>
 <script>
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
